@@ -1,8 +1,8 @@
 # Apostrophe CMS Deployment Scripts
 
-This repository contains a set of scripts to deploy, configure, and update an Apostrophe CMS application on an Ubuntu server. The scripts support zero-downtime deployments via blue/green asset switching, process management via PM2, and integration with Nginx and Varnish.
+This repository contains a set of scripts to deploy, configure, and update an Apostrophe CMS application on an Ubuntu server. The scripts handle the complete deployment process from your local machine to a remote server, supporting zero-downtime deployments via blue/green asset switching, process management via PM2, and integration with Nginx and Varnish.
 
-> **Note:** These scripts assume that you have a dedicated application user (e.g., `apos`) with passwordless sudo privileges (configured via `apos_user_sudo.sh`), and that necessary environment files and template files are in place.
+> **Note:** These scripts assume you'll create a dedicated application user (e.g., `apos`) with passwordless sudo privileges, and that they'll be executed from your local development environment.
 
 ---
 
@@ -12,12 +12,8 @@ This repository contains a set of scripts to deploy, configure, and update an Ap
 - [Directory Structure](#directory-structure)
 - [Prerequisites](#prerequisites)
 - [Environment File Setup](#environment-file-setup)
-- [Scripts Overview](#scripts-overview)
-- [Usage Instructions](#usage-instructions)
-  - [1. System Update & Software Installation](#1-system-update--software-installation)
-  - [2. Configuring Nginx](#2-configuring-nginx)
-  - [3. Configuring Varnish](#3-configuring-varnish)
-  - [4. Application Deployment Process](#4-application-deployment-process)
+- [Deployment Process](#deployment-process)
+- [Detailed Scripts Overview](#detailed-scripts-overview)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -25,49 +21,41 @@ This repository contains a set of scripts to deploy, configure, and update an Ap
 
 ## Overview
 
-These scripts deploy an Apostrophe CMS application with the following features:
+These scripts provide an end-to-end deployment solution for Apostrophe CMS applications with the following features:
 
-- **PM2-based Process Management:** Zero-downtime deployments with reload/restart functionality.
-- **Blue/Green Asset Switching:** Deploy front-end assets to standby slots and swap them on successful builds.
-- **Reverse Proxy Setup:** Nginx is configured to forward traffic to Varnish.
-- **Caching with Varnish:** Custom VCL configuration is applied to Varnish so that it forwards requests to the correct backend port.
+- **Local to Remote Deployment:** Execute scripts from your local environment to configure and deploy to a remote server
+- **PM2-based Process Management:** Zero-downtime deployments with reload/restart functionality
+- **Blue/Green Asset Switching:** Deploy front-end assets to standby slots and swap them on successful builds
+- **Complete Server Setup:** Automatically install and configure Node.js, Nginx, and Varnish
+- **Caching with Varnish:** Custom VCL configuration for proper request forwarding
+- **Automated Pre-caching:** Sitemap crawling to prime the cache after deployment
 
 ---
 
 ## Directory Structure
 
-- **deploy_script.sh**  
-  Main deployment script that prepares the environment, updates the repository, builds assets, and reloads the application via PM2.
-
-- **config.sh**  
-  Contains shared configuration variables and settings.
-
-- **nginx.sh**  
-  Configures Nginx to proxy requests to Varnish by creating the proper site configuration, symlinks, and reloading Nginx.
-
-- **varnish.sh**  
-  Configures Varnish by writing default settings, copying custom VCL templates, creating a secret file, and setting up a systemd override.
-
-- **update_install.sh**  
-  Updates the system and installs required packages (Node.js 22.x, Nginx, Varnish) with checks to avoid unnecessary reinstallation.
-
-- **functions.sh**  
-  Contains helper functions (e.g., `log_message`, `run_command`) used by other scripts.
-
-- **app_user.sh & apos_user_sudo.sh**  
-  Scripts to set up the application user and configure passwordless sudo privileges.
-
 - **deploy.sh**  
-  Deployment template that is copied (with variable substitution) to the deployment directory. It handles pulling the latest code from the repository, installing dependencies, building assets, and managing PM2.
-
-- **main.sh**  
-  The main entry point for starting the Apostrophe CMS application using PM2.
+  Main local script that copies all necessary files to the remote server, initiates the deployment, and handles environment file selection.
 
 - **env/**  
-  Contains environment files (e.g., `site_1.env`, `site_2.env`). These files define variables like `REPO_URL`, `BASE_URL`, `PORT`, `PROJECT_SHORTNAME`, etc.
+  Contains environment files (e.g., `site_1.env`, `site_2.env`) that define variables like `REPO_URL`, `BASE_URL`, `PORT`, etc.
+
+- **lib/** (on remote server after deployment)  
+  Contains the scripts that will run on the remote server:
+  - **main.sh** - Main driver for Apostrophe CMS setup
+  - **config.sh** - Global configuration variables
+  - **functions.sh** - Helper functions for logging and command execution
+  - **update_install.sh** - System updates and software installation
+  - **varnish.sh** - Varnish configuration
+  - **nginx.sh** - Nginx configuration
+  - **app_user.sh** - Creates application user and directories
+  - **apos_user_sudo.sh** - Configures passwordless sudo for the application user
+  - **deploy_script.sh** - Creates the deployment script for the app user
+  - **post_deploy.sh** - Runs after deployment
+  - **cleanup.sh** - Performs cleanup tasks
 
 - **templates/**  
-  Contains template files (e.g., `deploy.sh`, `varnish.vcl`) with placeholders (e.g., `$REPO_URL$`, `$APP_NAME$`) that are replaced during deployment.
+  Contains template files (e.g., `deploy.sh`, `varnish.vcl`) with placeholders that are replaced during deployment.
 
 ---
 
@@ -75,28 +63,34 @@ These scripts deploy an Apostrophe CMS application with the following features:
 
 Before using these scripts, ensure that:
 
-- **Operating System:** You are running an Ubuntu-based server.
-- **User Setup:** A dedicated application user (e.g., `apos`) is set up with passwordless sudo privileges.
-- **Software Requirements:**  
-  - Git, Node.js, and PM2 are installed.
-  - Nginx and Varnish are installed or will be installed by `update_install.sh`.
-- **Environment Files:** Prepared in the local `env/` directory.
-- **Template Files:** Custom template files are available in the `templates/` directory.
-- **Remote Environment:** The selected environment file will be deployed to `/opt/env/apostrophe.env` and linked as `.env` in the application directory.
+- **Local Environment:**
+  - Bash-compatible shell
+  - SSH access to the remote server
+  - Appropriate SSH key pair for authentication
+
+- **Remote Server Requirements:**
+  - Ubuntu-based server (tested on Ubuntu 20.04 LTS and newer)
+  - Ability to run commands with sudo privileges
+  - Internet access for downloading packages
+
+- **Bitbucket Access:**
+  - The deployment process will generate an SSH key for accessing your Bitbucket repository
+  - You'll need to add this key to your Bitbucket repository's deployment keys
 
 ---
 
 ## Environment File Setup
 
-1. **Local Environment Files:**  
-   Place your environment files inside the `env/` directory. For example:
+1. **Create Environment Files:**
+   
+   Create environment files in the `env/` directory. For example:
    - `env/site_1.env`
    - `env/site_2.env`
 
    These files should include variables such as:
 
    ```env
-   REPO_URL='git@bitbucket.org:username/repo.git'
+   REPO_URL='git@bitbucket.org:user/site_1.git'
    BASE_URL='https://site_1.co.uk'
    PORT=3000
    PROJECT_SHORTNAME=site_1
@@ -104,181 +98,154 @@ Before using these scripts, ensure that:
    # ...other environment variables as needed
    ```
 
-2. **Remote Deployment:**  
-   During the deployment process, you select one of these environment files. The chosen file is copied to the remote server as `/opt/env/apostrophe.env` and is linked in the application directory as `.env` for use by the application.
+   **Important:** The `PORT` variable must be set to `3000` for Apostrophe to work properly with the Varnish setup.
+
+2. **Required Environment Variables:**
+
+   - `REPO_URL` - The Git repository URL for your Apostrophe project
+   - `BASE_URL` - The base URL where your site will be accessible
+   - `PORT` - The port Apostrophe will listen on (should be 3000)
+   - `PROJECT_SHORTNAME` - A short name for your project, used in various configurations
+   - `SERVER_IP` - Optional, the IP address of your server (if provided, deployment will use this)
 
 ---
 
-## Scripts Overview
+## Deployment Process
 
-### update_install.sh
+### 1. Make the Script Executable
 
-- **Purpose:**  
-  Updates the system, installs Node.js (22.x), Nginx, and Varnish.
-- **Functionality:**  
-  - Runs `apt update` and `apt upgrade`.
-  - Checks if Node.js 22.x is installed; if not, installs the correct version.
-  - Installs Nginx and Varnish if they are not already installed.
+```bash
+chmod +x deploy.sh
+```
 
-### nginx.sh
+### 2. Run the Deployment Script
 
-- **Purpose:**  
-  Configures Nginx to proxy requests to Varnish.
-- **Functionality:**  
-  - Writes the desired Nginx configuration to `/etc/nginx/sites-available/varnish_proxy`.
-  - Creates (or updates) the symbolic link in `/etc/nginx/sites-enabled/`.
-  - Removes the default site configuration.
-  - Tests and reloads Nginx.
-- **Checks:**  
-  Compares current configuration with the desired configuration to avoid unnecessary overwrites.
+```bash
+./deploy.sh
+```
 
-### varnish.sh
+### 3. Follow the Prompts
 
-- **Purpose:**  
-  Configures Varnish.
-- **Functionality:**  
-  - Writes default settings to `/etc/default/varnish`.
-  - Copies your custom VCL template to `/etc/varnish/default.vcl`.
-  - Creates a Varnish secret file if it does not exist.
-  - Sets up a systemd service override for Varnish and restarts the service.
-- **Checks:**  
-  Validates file existence and content before making changes.
+The script will:
 
-### deploy_script.sh & deploy.sh
+1. Prompt for the server username (default: ubuntu)
+2. Prompt for PEM file information (default or numbered Lightsail key)
+3. Ask you to select an environment file from the `env/` directory
+4. Determine the server IP from the environment file or prompt for it
+5. Copy all necessary files to the remote server
+6. Execute the main setup script on the remote server
+7. Generate SSH keys for Bitbucket access (you'll need to add these to your repository)
+8. Install and configure all required software
+9. Deploy your Apostrophe application
 
-- **Purpose:**  
-  Deploys the application.
-- **Functionality:**  
-  - Prompts you to select an environment file from the `env/` directory.
-  - Copies necessary files to the remote server.
-  - Replaces placeholders (e.g., `$REPO_URL$`, `$APP_NAME$`) in the templates.
-  - Updates the repository, installs dependencies, builds assets, and manages PM2 to reload or restart the application.
-  - Implements blue/green asset switching.
-  
-### functions.sh
+### 4. Add the Deploy Key to Bitbucket
 
-- **Purpose:**  
-  Provides shared helper functions (e.g., `log_message`, `run_command`) for logging and command execution.
+During the deployment process, you'll be prompted to add an SSH deploy key to your Bitbucket repository. The key will be displayed in the terminal. You need to add this key to your repository's deployment keys in Bitbucket before continuing.
 
-### app_user.sh & apos_user_sudo.sh
+---
 
-- **Purpose:**  
-  Set up the application user and configure passwordless sudo privileges.
+## Detailed Scripts Overview
+
+### deploy.sh
+
+- **Purpose:** Main entry point executed locally
+- **Functionality:**
+  - Selects environment file
+  - Copies all scripts to the remote server
+  - Executes the setup process remotely
 
 ### main.sh
 
-- **Purpose:**  
-  The entry point for starting the Apostrophe CMS application via PM2.
+- **Purpose:** Main driver for remote setup
+- **Functionality:**
+  - Orchestrates the execution of all other scripts
+  - Handles user creation, system updates, and service configuration
 
----
+### update_install.sh
 
-## Usage Instructions
+- **Purpose:** Updates the system and installs required software
+- **Functionality:**
+  - Updates system packages
+  - Installs Node.js 22.x
+  - Installs Nginx and Varnish
 
-### 1. System Update & Software Installation
+### nginx.sh & varnish.sh
 
-Run the **update_install.sh** script (as root or with sudo):
+- **Purpose:** Configures the web server and caching proxy
+- **Functionality:**
+  - Sets up Nginx to forward traffic to Varnish (port 81)
+  - Configures Varnish to forward requests to Apostrophe (port 3000)
 
-```bash
-sudo bash update_install.sh
-```
+### app_user.sh & apos_user_sudo.sh
 
-This script:
-- Updates the system.
-- Installs or upgrades Node.js (22.x), Nginx, and Varnish as required.
+- **Purpose:** Sets up the application user
+- **Functionality:**
+  - Creates the `apos` user
+  - Configures passwordless sudo
+  - Sets up SSH keys for Git access
+  - Installs PM2 for the application user
 
-### 2. Configuring Nginx
+### deploy_script.sh
 
-Run the nginx.sh script:
+- **Purpose:** Creates the deployment script for the application user
+- **Functionality:**
+  - Customizes the deploy script with repository URL
+  - Places it in the appropriate directory
 
-```bash
-sudo bash nginx.sh
-```
+### sitemap-crawler.js
 
-This script:
-- Writes the desired configuration to `/etc/nginx/sites-available/varnish_proxy`.
-- Creates the necessary symbolic link in `/etc/nginx/sites-enabled/`.
-- Removes the default configuration.
-- Tests and reloads Nginx.
-
-### 3. Configuring Varnish
-
-Run the varnish.sh script:
-
-```bash
-sudo bash varnish.sh
-```
-
-This script:
-- Writes default settings to `/etc/default/varnish`.
-- Copies your custom VCL template to `/etc/varnish/default.vcl`.
-- Creates a secret file for Varnish if needed.
-- Sets up a systemd override for Varnish and restarts the service.
-
-### 4. Application Deployment Process
-
-1. **Environment File Selection:**
-   Run the deploy_script.sh locally. When prompted, select an environment file from the `env/` directory. The selected file will be copied to `.env` and later deployed to `/opt/env/apostrophe.env` on the remote server.
-
-2. **Deploy the Application:**
-   Execute the deployment script:
-
-   ```bash
-   ./deploy_script.sh
-   ```
-
-   This script will:
-   - Copy necessary files to the remote server.
-   - Replace placeholders (e.g., `$REPO_URL$`, `$APP_NAME$`) in template files.
-   - Update the repository, install dependencies, build assets, and manage the application with PM2.
-   - Switch asset slots using a blue/green deployment strategy.
-   - Verify service connectivity for Varnish (or Nginx) and optionally trigger pre-caching with a sitemap crawler.
+- **Purpose:** Pre-caches the site after deployment
+- **Functionality:**
+  - Crawls the sitemap.xml
+  - Visits all URLs to prime the cache
 
 ---
 
 ## Troubleshooting
 
-- **Port Mismatch:**
-  If Varnish forwards to an unexpected port (e.g., 3001 instead of 3000), verify that your application is configured to listen on the correct port (usually defined in your `.env` file as `PORT=3000`) and check your PM2 logs.
+### Port Configuration Issues
+- **Important:** Ensure your Apostrophe application is configured to listen on port 3000
+  - Check your `.env` file to confirm that `PORT=3000` is set
+  - The Varnish configuration expects Apostrophe to be running on port 3000
+  - If you need to use a different port, you must update the Varnish VCL file accordingly
 
-- **Unreplaced Placeholders:**
-  If placeholders such as `$REPO_URL$` or `$APP_NAME$` remain in deployed scripts:
-  - Ensure that the correct environment file is sourced (check `/opt/env/apostrophe.env` on the server).
-  - Confirm that the template files in `templates/` contain the exact placeholder strings.
-  - Verify that the variable substitution (using `sed` in `deploy_script.sh`) is functioning properly.
+### Varnish Connection Issues
+- If Varnish cannot connect to the backend:
+  - Check that Apostrophe is running: `pm2 list`
+  - Verify Varnish configuration: `sudo varnishd -C -f /etc/varnish/default.vcl`
+  - Test direct connection to Apostrophe: `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000`
+  - Test connection to Varnish: `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:81`
 
-- **PM2 and Process Issues:**
-  - Use `pm2 logs <app_name>` to review logs.
-  - Use `pm2 list` to verify running processes.
+### PM2 Process Issues
+- If Apostrophe fails to start or restart:
+  - Check PM2 logs: `pm2 logs apostrophe`
+  - Verify `NODE_ENV` is properly set in your environment file
+  - Try manually starting the application: `cd /var/www/apostrophe && pm2 start app.js --name apostrophe`
 
-- **Nginx & Varnish Connectivity:**
-  - Test Nginx with:
-    ```bash
-    curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1
-    ```
-  - Test Varnish with:
-    ```bash
-    curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:81
-    ```
-  - Check service statuses with:
-    ```bash
-    systemctl status nginx
-    systemctl status varnish
-    ```
+### Deployment Key Issues
+- If you encounter authentication failures with Bitbucket:
+  - Verify the deploy key was added to your Bitbucket repository
+  - Check SSH configuration: `sudo -u apos ssh -T git@bitbucket.org`
+  - Ensure proper permissions: `ls -la /home/apos/.ssh/`
 
-- **File Permissions & Ownership:**
-  Verify that files are owned by the appropriate user (typically `apos`) and have proper permissions using `chown` and `chmod` as shown in the scripts.
+### File Permission Issues
+- If you encounter permission errors:
+  - Check ownership of application directory: `ls -la /var/www/apostrophe`
+  - Ensure the apos user has proper permissions: `sudo chown -R apos:apos /var/www/apostrophe`
+  - Verify sudo privileges: `sudo -u apos sudo -n true`
 
-- **Sudo Privileges:**
-  If permission errors occur, ensure that the `apos` user has passwordless sudo privileges for the required commands (check via `visudo -c`).
+### Unreplaced Placeholders
+- If you see unreplaced placeholders like `$REPO_URL$` in scripts:
+  - Check that your environment file is properly formatted
+  - Verify the substitution process in `deploy_script.sh`
 
 ---
 
 ## License
 
-
 MIT License
 
-Copyright (c) 2025 Gekkota
+Copyright (c) 2025 [Your Name or Organization]
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -286,6 +253,7 @@ in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
+
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
@@ -296,5 +264,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----

@@ -245,7 +245,7 @@ During the deployment process, you'll be prompted to add an SSH deploy key to yo
 
 MIT License
 
-Copyright (c) 2025 [Your Name or Organization]
+Copyright (c) 2025 Gekkota
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

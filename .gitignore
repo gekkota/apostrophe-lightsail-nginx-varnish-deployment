@@ -1,0 +1,3 @@
+# all .env files should be ignored
+.env*
+*.env*

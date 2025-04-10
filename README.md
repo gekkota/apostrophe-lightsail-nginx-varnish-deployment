@@ -64,7 +64,7 @@ These scripts deploy an Apostrophe CMS application with the following features:
   The main entry point for starting the Apostrophe CMS application using PM2.
 
 - **env/**  
-  Contains environment files (e.g., `entertainers.env`, `threekey.env`). These files define variables like `REPO_URL`, `BASE_URL`, `PORT`, `PROJECT_SHORTNAME`, etc.
+  Contains environment files (e.g., `site_1.env`, `site_2.env`). These files define variables like `REPO_URL`, `BASE_URL`, `PORT`, `PROJECT_SHORTNAME`, etc.
 
 - **templates/**  
   Contains template files (e.g., `deploy.sh`, `varnish.vcl`) with placeholders (e.g., `$REPO_URL$`, `$APP_NAME$`) that are replaced during deployment.
@@ -90,16 +90,16 @@ Before using these scripts, ensure that:
 
 1. **Local Environment Files:**  
    Place your environment files inside the `env/` directory. For example:
-   - `env/entertainers.env`
-   - `env/threekey.env`
+   - `env/site_1.env`
+   - `env/site_2.env`
 
    These files should include variables such as:
 
    ```env
-   REPO_URL='git@bitbucket.org:lev_lev/threekey-a3.git'
-   BASE_URL='https://entertainers.co.uk'
+   REPO_URL='git@bitbucket.org:username/repo.git'
+   BASE_URL='https://site_1.co.uk'
    PORT=3000
-   PROJECT_SHORTNAME=entertainers
+   PROJECT_SHORTNAME=site_1
    SERVER_IP=your.server.ip.address
    # ...other environment variables as needed
    ```
@@ -288,6 +288,7 @@ copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
+
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
